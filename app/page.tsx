@@ -50,21 +50,26 @@ interface Patient {
   bloodResults: string;
   plan: string;
   category: string;
+  site: string; // Add this line
+  traumaCategory?: string;
+  tciDay?: string;
 }
 
 interface FilterProps {
   wards: string[];
   categories: string[];
-  onFilterChange: (ward: string, category: string) => void;
+  sites: string[]; // Add this line
+  onFilterChange: (ward: string, category: string, site: string) => void; // Update this line
 }
 
-const Filter: React.FC<FilterProps> = ({ wards, categories, onFilterChange }) => {
+const Filter: React.FC<FilterProps> = ({ wards, categories, sites, onFilterChange }) => {
   const [selectedWard, setSelectedWard] = useState<string>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedSite, setSelectedSite] = useState<string>("all"); // Add this line
 
   useEffect(() => {
-    onFilterChange(selectedWard, selectedCategory);
-  }, [selectedWard, selectedCategory, onFilterChange]);
+    onFilterChange(selectedWard, selectedCategory, selectedSite);
+  }, [selectedWard, selectedCategory, selectedSite, onFilterChange]);
 
   return (
     <div className="flex space-x-4 mb-4">
@@ -94,6 +99,19 @@ const Filter: React.FC<FilterProps> = ({ wards, categories, onFilterChange }) =>
           ))}
         </SelectContent>
       </Select>
+      <Select value={selectedSite} onValueChange={setSelectedSite}>
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Filter by Site" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Sites</SelectItem>
+          {sites.map((site) => (
+            <SelectItem key={site} value={site}>
+              {site}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 };
@@ -117,26 +135,46 @@ export default function HomePage() {
     bloodResults: "",
     plan: "",
     category: "",
+    site: "", // Add this line
+    traumaCategory: "",
+    tciDay: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [filterWard, setFilterWard] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterSite, setFilterSite] = useState<string>("all"); // Add this line
+  const [activeView, setActiveView] = useState('all');
 
   const wards = ["B1", "B2", "B3", "B4", "B5"];
-  const categories = ["In Patient", "Home", "Urgent"];
+  const categories = ["N/A", "General Upper Limb", "General Lower Limb", "Hand", "Hip"];
+  const sites = ["PCH", "HH"]; // Add this line
+  const tciOptions = ["N/A", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  const filterPatientsByView = (patients: Patient[]) => {
+    if (activeView === 'all') return patients;
+    if (categories.includes(activeView)) {
+      return patients.filter(p => p.category === activeView);
+    }
+    if (tciOptions.includes(activeView)) {
+      return patients.filter(p => p.tciDay === activeView);
+    }
+    return patients;
+  };
 
   useEffect(() => {
-    const filtered = patients.filter((patient) => {
+    const filtered = filterPatientsByView(patients.filter((patient) => {
       const wardMatch = filterWard === "all" || patient.ward === filterWard;
       const categoryMatch = filterCategory === "all" || patient.category === filterCategory;
-      return wardMatch && categoryMatch;
-    });
+      const siteMatch = filterSite === "all" || patient.site === filterSite;
+      return wardMatch && categoryMatch && siteMatch;
+    }));
     setFilteredPatients(filtered);
-  }, [patients, filterWard, filterCategory]);
+  }, [patients, filterWard, filterCategory, filterSite, activeView]);
 
-  const handleFilterChange = (ward: string, category: string) => {
+  const handleFilterChange = (ward: string, category: string, site: string) => { // Update this line
     setFilterWard(ward);
     setFilterCategory(category);
+    setFilterSite(site); // Add this line
   };
 
   const handleInputChange = (
@@ -173,6 +211,9 @@ export default function HomePage() {
       bloodResults: "",
       plan: "",
       category: "",
+      site: "", // Add this line
+      traumaCategory: "",
+      tciDay: "",
     });
     setIsEditing(false);
   };
@@ -204,29 +245,45 @@ export default function HomePage() {
       {/* Sidebar */}
       <div className="w-64 bg-white shadow-md p-4">
         <div className="p-4">
-          <h1 className="text-xl font-bold">Handover</h1>
+          <h1 className="text-xl font-bold">eHandover</h1>
         </div>
         <nav className="mt-4">
           <Button
-            variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
+            variant={activeView === 'all' ? 'default' : 'ghost'}
             className="w-full justify-start mb-2"
-            onClick={() => setActiveTab('dashboard')}
-          >
-            <Home className="mr-2 h-4 w-4" />
-            Dashboard
-          </Button>
-          <Button
-            variant={activeTab === 'patients' ? 'default' : 'ghost'}
-            className="w-full justify-start mb-2"
-            onClick={() => setActiveTab('patients')}
+            onClick={() => setActiveView('all')}
           >
             <Users className="mr-2 h-4 w-4" />
-            Patients
+            All Patients
           </Button>
-    
+          <div className="mt-4">
+            <h2 className="text-sm font-semibold mb-2">Categories</h2>
+            {categories.map((category) => (
+              <Button
+                key={category}
+                variant={activeView === category ? 'default' : 'ghost'}
+                className="w-full justify-start mb-1 text-sm"
+                onClick={() => setActiveView(category)}
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-4">
+            <h2 className="text-sm font-semibold mb-2">TCI</h2>
+            {tciOptions.map((day) => (
+              <Button
+                key={day}
+                variant={activeView === day ? 'default' : 'ghost'}
+                className="w-full justify-start mb-1 text-sm"
+                onClick={() => setActiveView(day)}
+              >
+                {day}
+              </Button>
+            ))}
+          </div>
         </nav>
         <div className="absolute bottom-0 left-0 w-64 p-4">
-
           <Button
             variant="ghost"
             className="w-full justify-start mb-2 hover:bg-gray-100"
@@ -241,12 +298,14 @@ export default function HomePage() {
       <div className="flex-1 overflow-auto">
         <div className="p-8">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Patients</h1>
+            <h1 className="text-2xl font-bold">
+              {activeView === 'all' ? 'All Patients' : `${activeView} Patients`}
+            </h1>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button onClick={openAddPatientDialog}>+ Add Patient</Button>
               </DialogTrigger>
-              <DialogContent className="">
+              <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>{isEditing ? 'Update Patient' : 'Add Patient'}</DialogTitle>
                   <DialogDescription>
@@ -266,6 +325,7 @@ export default function HomePage() {
                     { label: "Operation Date", id: "opDate" },
                     { label: "Blood Results", id: "bloodResults" },
                     { label: "Plan", id: "plan" },
+                    { label: "Site", id: "site" }, // Add this line
                   ].map((field) => (
                     <div key={field.id} className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor={field.id} className="text-right">
@@ -291,14 +351,14 @@ export default function HomePage() {
                   ))}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="ward" className="text-right">
-                      Ward
+                      Location
                     </Label>
                     <Select
                       onValueChange={(value) => setCurrentPatient({ ...currentPatient, ward: value })}
                       value={currentPatient.ward || undefined}
                     >
                       <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select ward" />
+                        <SelectValue placeholder="Select location" />
                       </SelectTrigger>
                       <SelectContent>
                         {["B1", "B2", "B3", "B4", "B5"].map((ward) => (
@@ -315,15 +375,55 @@ export default function HomePage() {
                     </Label>
                     <Select
                       onValueChange={(value) => setCurrentPatient({ ...currentPatient, category: value })}
-                      value={currentPatient.category || undefined}
+                      value={currentPatient.category || "N/A"}
                     >
                       <SelectTrigger className="col-span-3">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {["In Patient", "Home"].map((category) => (
+                        {categories.map((category) => (
                           <SelectItem key={category} value={category}>
                             {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="tci" className="text-right">
+                      TCI
+                    </Label>
+                    <Select
+                      onValueChange={(value) => setCurrentPatient({ ...currentPatient, tci: value })}
+                      value={currentPatient.tci || "N/A"}
+                    >
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select TCI" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tciOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="site" className="text-right">
+                      Site
+                    </Label>
+                    <Select
+                      onValueChange={(value) => setCurrentPatient({ ...currentPatient, site: value })}
+                      value={currentPatient.site || undefined}
+                    >
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select site" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sites.map((site) => (
+                          <SelectItem key={site} value={site}>
+                            {site}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -340,7 +440,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex space-x-4 mb-4">
-            <Select value={filterWard} onValueChange={(value) => handleFilterChange(value, filterCategory)}>
+            <Select value={filterWard} onValueChange={(value) => handleFilterChange(value, filterCategory, filterSite)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="B1" />
               </SelectTrigger>
@@ -353,7 +453,7 @@ export default function HomePage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filterCategory} onValueChange={(value) => handleFilterChange(filterWard, value)}>
+            <Select value={filterCategory} onValueChange={(value) => handleFilterChange(filterWard, value, filterSite)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Admitted" />
               </SelectTrigger>
@@ -366,6 +466,19 @@ export default function HomePage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={filterSite} onValueChange={(value) => handleFilterChange(filterWard, filterCategory, value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select Site" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sites</SelectItem>
+                {sites.map((site) => (
+                  <SelectItem key={site} value={site}>
+                    {site}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {filteredPatients.length === 0 ? (
@@ -374,11 +487,11 @@ export default function HomePage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Dis No</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>DIS</TableHead>
+                  <TableHead>Age</TableHead>
                   <TableHead>Consultant</TableHead>
                   <TableHead>Ward</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Age/Sex</TableHead>
                   <TableHead>Date of Presentation</TableHead>
                   <TableHead>Diagnosis</TableHead>
                   <TableHead>History</TableHead>
@@ -391,11 +504,11 @@ export default function HomePage() {
               <TableBody>
                 {filteredPatients.map((patient, index) => (
                   <TableRow key={index}>
+                    <TableCell>{`DIS${patient.disNo}`}</TableCell>
                     <TableCell>{patient.disNo}</TableCell>
+                    <TableCell>{patient.age}{patient.sex === "Male" ? "M" : "F"}</TableCell>
                     <TableCell>{patient.cons}</TableCell>
                     <TableCell>{patient.ward}</TableCell>
-                    <TableCell>{patient.nameDis}</TableCell>
-                    <TableCell>{`${patient.age}${patient.sex}`}</TableCell>
                     <TableCell>{patient.doiPresentation}</TableCell>
                     <TableCell>{patient.diagnosis}</TableCell>
                     <TableCell>{patient.history}</TableCell>
