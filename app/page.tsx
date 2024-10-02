@@ -57,19 +57,17 @@ interface Patient {
 
 interface FilterProps {
   wards: string[];
-  categories: string[];
-  sites: string[]; // Add this line
-  onFilterChange: (ward: string, category: string, site: string) => void; // Update this line
+  sites: string[];
+  onFilterChange: (ward: string, site: string) => void;
 }
 
-const Filter: React.FC<FilterProps> = ({ wards, categories, sites, onFilterChange }) => {
+const Filter: React.FC<FilterProps> = ({ wards, sites, onFilterChange }) => {
   const [selectedWard, setSelectedWard] = useState<string>("all");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [selectedSite, setSelectedSite] = useState<string>("all"); // Add this line
+  const [selectedSite, setSelectedSite] = useState<string>("all");
 
   useEffect(() => {
-    onFilterChange(selectedWard, selectedCategory, selectedSite);
-  }, [selectedWard, selectedCategory, selectedSite, onFilterChange]);
+    onFilterChange(selectedWard, selectedSite);
+  }, [selectedWard, selectedSite, onFilterChange]);
 
   return (
     <div className="flex space-x-4 mb-4">
@@ -82,19 +80,6 @@ const Filter: React.FC<FilterProps> = ({ wards, categories, sites, onFilterChang
           {wards.map((ward) => (
             <SelectItem key={ward} value={ward}>
               {ward}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Filter by Category" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
-          {categories.map((category) => (
-            <SelectItem key={category} value={category}>
-              {category}
             </SelectItem>
           ))}
         </SelectContent>
@@ -141,8 +126,7 @@ export default function HomePage() {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [filterWard, setFilterWard] = useState<string>("all");
-  const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [filterSite, setFilterSite] = useState<string>("all"); // Add this line
+  const [filterSite, setFilterSite] = useState<string>("all");
   const [activeView, setActiveView] = useState('all');
 
   const wards = ["B1", "B2", "B3", "B4", "B5"];
@@ -164,17 +148,15 @@ export default function HomePage() {
   useEffect(() => {
     const filtered = filterPatientsByView(patients.filter((patient) => {
       const wardMatch = filterWard === "all" || patient.ward === filterWard;
-      const categoryMatch = filterCategory === "all" || patient.category === filterCategory;
       const siteMatch = filterSite === "all" || patient.site === filterSite;
-      return wardMatch && categoryMatch && siteMatch;
+      return wardMatch && siteMatch;
     }));
     setFilteredPatients(filtered);
-  }, [patients, filterWard, filterCategory, filterSite, activeView]);
+  }, [patients, filterWard, filterSite, activeView]);
 
-  const handleFilterChange = (ward: string, category: string, site: string) => { // Update this line
+  const handleFilterChange = (ward: string, site: string) => {
     setFilterWard(ward);
-    setFilterCategory(category);
-    setFilterSite(site); // Add this line
+    setFilterSite(site);
   };
 
   const handleInputChange = (
@@ -440,9 +422,9 @@ export default function HomePage() {
           </div>
 
           <div className="flex space-x-4 mb-4">
-            <Select value={filterWard} onValueChange={(value) => handleFilterChange(value, filterCategory, filterSite)}>
+            <Select value={filterWard} onValueChange={(value) => handleFilterChange(value, filterSite)}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="B1" />
+                <SelectValue placeholder="Select Ward" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Wards</SelectItem>
@@ -453,20 +435,7 @@ export default function HomePage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filterCategory} onValueChange={(value) => handleFilterChange(filterWard, value, filterSite)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Admitted" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterSite} onValueChange={(value) => handleFilterChange(filterWard, filterCategory, value)}>
+            <Select value={filterSite} onValueChange={(value) => handleFilterChange(filterWard, value)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select Site" />
               </SelectTrigger>
