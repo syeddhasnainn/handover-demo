@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, Fragment } from "react"
 import {
   Table,
   TableBody,
@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 // Add these new imports
-import { Home, Users, Calendar, Settings, LogOut } from "lucide-react"
+import { Home, Users, Calendar, Settings, LogOut, Printer } from "lucide-react"
 import patientData from './data/patientData.json';
 
 interface Patient {
@@ -130,9 +130,9 @@ export default function HomePage() {
   const [activeView, setActiveView] = useState('all');
 
   const wards = ["B1", "B2", "B3", "B4", "B5"];
-  const categories = ["N/A", "General Upper Limb", "General Lower Limb", "Hand", "Hip"];
+  const categories = ["General Upper Limb", "General Lower Limb", "Hand", "Hip"];
   const sites = ["PCH", "HH"]; // Add this line
-  const tciOptions = ["N/A", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const tciOptions = [ "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   const filterPatientsByView = (patients: Patient[]) => {
     if (activeView === 'all') return patients;
@@ -222,6 +222,68 @@ export default function HomePage() {
   };
   const [activeTab, setActiveTab] = useState('patients')
 
+  // Add this function to group patients by category
+  const groupPatientsByCategory = (patients: Patient[]) => {
+    return patients.reduce((acc, patient) => {
+      const category = patient.category || 'Uncategorized';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(patient);
+      return acc;
+    }, {} as Record<string, Patient[]>);
+  };
+
+  // Modify the handlePrint function
+  const handlePrint = () => {
+    const printContent = document.getElementById('printableArea');
+    const windowPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
+    
+    if (printContent && windowPrint) {
+      // Create a copy of the content
+      const contentCopy = printContent.cloneNode(true) as HTMLElement;
+
+      // Remove the Actions column header and cells
+      const actionHeader = contentCopy.querySelector('th.print\\:hidden');
+      if (actionHeader) actionHeader.remove();
+
+      const actionCells = contentCopy.querySelectorAll('td.print\\:hidden');
+      actionCells.forEach(cell => cell.remove());
+
+      // Adjust the colspan of category rows
+      const categoryRows = contentCopy.querySelectorAll('.category-row td');
+      categoryRows.forEach(row => {
+        (row as HTMLTableCellElement).colSpan = 11; // Reduced from 12 to 11
+      });
+
+      windowPrint.document.write(`
+        <html>
+          <head>
+            <title>Print Patients List</title>
+            <style>
+              table { border-collapse: collapse; width: 100%; }
+              th, td { border: 1px solid black; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; }
+              .category-row td { 
+                background-color: #e0e0e0; 
+                text-align: center; 
+                font-weight: bold;
+                padding: 12px;
+              }
+            </style>
+          </head>
+          <body>
+            ${contentCopy.innerHTML}
+          </body>
+        </html>
+      `);
+      windowPrint.document.close();
+      windowPrint.focus();
+      windowPrint.print();
+      windowPrint.close();
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -265,15 +327,6 @@ export default function HomePage() {
             ))}
           </div>
         </nav>
-        <div className="absolute bottom-0 left-0 w-64 p-4">
-          <Button
-            variant="ghost"
-            className="w-full justify-start mb-2 hover:bg-gray-100"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
       </div>
 
       {/* Main content */}
@@ -283,142 +336,148 @@ export default function HomePage() {
             <h1 className="text-2xl font-bold">
               {activeView === 'all' ? 'All Patients' : `${activeView} Patients`}
             </h1>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={openAddPatientDialog}>+ Add Patient</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{isEditing ? 'Update Patient' : 'Add Patient'}</DialogTitle>
-                  <DialogDescription>
-                    {isEditing ? 'Update patient details.' : 'Add a new patient to the system.'}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  {[
-                    { label: "Dis No", id: "disNo" },
-                    { label: "Consultant", id: "cons" },
-                    { label: "Name", id: "nameDis" },
-                    { label: "Age", id: "age", type: "number" },
-                    { label: "Sex", id: "sex" },
-                    { label: "Date of Presentation", id: "doiPresentation" },
-                    { label: "Diagnosis", id: "diagnosis" },
-                    { label: "History", id: "history" },
-                    { label: "Operation Date", id: "opDate" },
-                    { label: "Blood Results", id: "bloodResults" },
-                    { label: "Plan", id: "plan" },
-                    { label: "Site", id: "site" }, // Add this line
-                  ].map((field) => (
-                    <div key={field.id} className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor={field.id} className="text-right">
-                        {field.label}
+            <div className="flex space-x-4">
+              <Button onClick={handlePrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print List
+              </Button>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={openAddPatientDialog}>+ Add Patient</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>{isEditing ? 'Update Patient' : 'Add Patient'}</DialogTitle>
+                    <DialogDescription>
+                      {isEditing ? 'Update patient details.' : 'Add a new patient to the system.'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    {[
+                      { label: "Dis No", id: "disNo" },
+                      { label: "Consultant", id: "cons" },
+                      { label: "Name", id: "nameDis" },
+                      { label: "Age", id: "age", type: "number" },
+                      { label: "Sex", id: "sex" },
+                      { label: "Date of Presentation", id: "doiPresentation" },
+                      { label: "Diagnosis", id: "diagnosis" },
+                      { label: "History", id: "history" },
+                      { label: "Operation Date", id: "opDate" },
+                      { label: "Blood Results", id: "bloodResults" },
+                      { label: "Plan", id: "plan" },
+                      { label: "Site", id: "site" }, // Add this line
+                    ].map((field) => (
+                      <div key={field.id} className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor={field.id} className="text-right">
+                          {field.label}
+                        </Label>
+                        {field.id === "history" || field.id === "plan" ? (
+                          <Textarea
+                            id={field.id}
+                            value={currentPatient[field.id as keyof Patient]}
+                            onChange={handleInputChange}
+                            className="col-span-3"
+                          />
+                        ) : (
+                          <Input
+                            id={field.id}
+                            type={field.type || "text"}
+                            value={currentPatient[field.id as keyof Patient]}
+                            onChange={handleInputChange}
+                            className="col-span-3"
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="ward" className="text-right">
+                        Location
                       </Label>
-                      {field.id === "history" || field.id === "plan" ? (
-                        <Textarea
-                          id={field.id}
-                          value={currentPatient[field.id as keyof Patient]}
-                          onChange={handleInputChange}
-                          className="col-span-3"
-                        />
-                      ) : (
-                        <Input
-                          id={field.id}
-                          type={field.type || "text"}
-                          value={currentPatient[field.id as keyof Patient]}
-                          onChange={handleInputChange}
-                          className="col-span-3"
-                        />
-                      )}
+                      <Select
+                        onValueChange={(value) => setCurrentPatient({ ...currentPatient, ward: value })}
+                        value={currentPatient.ward || undefined}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["B1", "B2", "B3", "B4", "B5"].map((ward) => (
+                            <SelectItem key={ward} value={ward}>
+                              {ward}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="ward" className="text-right">
-                      Location
-                    </Label>
-                    <Select
-                      onValueChange={(value) => setCurrentPatient({ ...currentPatient, ward: value })}
-                      value={currentPatient.ward || undefined}
-                    >
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select location" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {["B1", "B2", "B3", "B4", "B5"].map((ward) => (
-                          <SelectItem key={ward} value={ward}>
-                            {ward}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="category" className="text-right">
+                        Category
+                      </Label>
+                      <Select
+                        onValueChange={(value) => setCurrentPatient({ ...currentPatient, category: value })}
+                        value={currentPatient.category || "N/A"}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="tci" className="text-right">
+                        TCI
+                      </Label>
+                      <Select
+                        onValueChange={(value) => setCurrentPatient({ ...currentPatient, tci: value })}
+                        value={currentPatient.tci || "N/A"}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select TCI" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tciOptions.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="site" className="text-right">
+                        Site
+                      </Label>
+                      <Select
+                        onValueChange={(value) => setCurrentPatient({ ...currentPatient, site: value })}
+                        value={currentPatient.site || undefined}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select site" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sites.map((site) => (
+                            <SelectItem key={site} value={site}>
+                              {site}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="category" className="text-right">
-                      Category
-                    </Label>
-                    <Select
-                      onValueChange={(value) => setCurrentPatient({ ...currentPatient, category: value })}
-                      value={currentPatient.category || "N/A"}
-                    >
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="tci" className="text-right">
-                      TCI
-                    </Label>
-                    <Select
-                      onValueChange={(value) => setCurrentPatient({ ...currentPatient, tci: value })}
-                      value={currentPatient.tci || "N/A"}
-                    >
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select TCI" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tciOptions.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="site" className="text-right">
-                      Site
-                    </Label>
-                    <Select
-                      onValueChange={(value) => setCurrentPatient({ ...currentPatient, site: value })}
-                      value={currentPatient.site || undefined}
-                    >
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select site" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sites.map((site) => (
-                          <SelectItem key={site} value={site}>
-                            {site}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleAddOrUpdatePatient} type="submit">
-                    {isEditing ? 'Update Patient' : 'Add Patient'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  <DialogFooter>
+                    <Button onClick={handleAddOrUpdatePatient} type="submit">
+                      {isEditing ? 'Update Patient' : 'Add Patient'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           <div className="flex space-x-4 mb-4">
@@ -450,68 +509,79 @@ export default function HomePage() {
             </Select>
           </div>
 
-          {filteredPatients.length === 0 ? (
-            <p>No patients found.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>DIS</TableHead>
-                  <TableHead>Age</TableHead>
-                  <TableHead>Consultant</TableHead>
-                  <TableHead>Ward</TableHead>
-                  <TableHead>Date of Presentation</TableHead>
-                  <TableHead>Diagnosis</TableHead>
-                  <TableHead>History</TableHead>
-                  <TableHead>Operation Date</TableHead>
-                  <TableHead>Blood Results</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPatients.map((patient, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{`DIS${patient.disNo}`}</TableCell>
-                    <TableCell>{patient.disNo}</TableCell>
-                    <TableCell>{patient.age}{patient.sex === "Male" ? "M" : "F"}</TableCell>
-                    <TableCell>{patient.cons}</TableCell>
-                    <TableCell>{patient.ward}</TableCell>
-                    <TableCell>{patient.doiPresentation}</TableCell>
-                    <TableCell>{patient.diagnosis}</TableCell>
-                    <TableCell>{patient.history}</TableCell>
-                    <TableCell>{patient.opDate}</TableCell>
-                    <TableCell>{patient.bloodResults}</TableCell>
-                    <TableCell>{patient.plan}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openEditPatientDialog(patient)}>
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleMovePatient(patient)}>
-                            Move
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleRemovePatient(patient.disNo)}>
-                            Remove
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+          <div id="printableArea">
+            {filteredPatients.length === 0 ? (
+              <p>No patients found.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>DIS</TableHead>
+                    <TableHead>Age</TableHead>
+                    <TableHead>Consultant</TableHead>
+                    <TableHead>Ward</TableHead>
+                    <TableHead>Date of Presentation</TableHead>
+                    <TableHead>Diagnosis</TableHead>
+                    <TableHead>History</TableHead>
+                    <TableHead>Operation Date</TableHead>
+                    <TableHead>Blood Results</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead className="print:hidden">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(groupPatientsByCategory(filteredPatients)).map(([category, patients]) => (
+                    <Fragment key={category}>
+                      <TableRow className="category-row">
+                        <TableCell colSpan={12} className="text-center font-bold bg-gray-100 py-3">
+                          {category}
+                        </TableCell>
+                      </TableRow>
+                      {patients.map((patient, index) => (
+                        <TableRow key={`${category}-${index}`}>
+                          <TableCell>{patient.nameDis}</TableCell>
+                          <TableCell>{patient.disNo}</TableCell>
+                          <TableCell>{patient.age}{patient.sex === "Male" ? "M" : "F"}</TableCell>
+                          <TableCell>{patient.cons}</TableCell>
+                          <TableCell>{patient.ward}</TableCell>
+                          <TableCell>{patient.doiPresentation}</TableCell>
+                          <TableCell>{patient.diagnosis}</TableCell>
+                          <TableCell>{patient.history}</TableCell>
+                          <TableCell>{patient.opDate}</TableCell>
+                          <TableCell>{patient.bloodResults}</TableCell>
+                          <TableCell>{patient.plan}</TableCell>
+                          <TableCell className="print:hidden">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => openEditPatientDialog(patient)}>
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleMovePatient(patient)}>
+                                  Move
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleRemovePatient(patient.disNo)}>
+                                  Remove
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </div>
       </div>
     </div>
