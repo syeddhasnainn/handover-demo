@@ -134,13 +134,22 @@ export default function HomePage() {
   const sites = ["PCH", "HH"]; // Add this line
   const tciOptions = [ "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
+  // Add this new state for archive view
+  const [archiveView, setArchiveView] = useState<string | null>(null);
+
+  // Modify the filterPatientsByView function to include archive filtering
   const filterPatientsByView = (patients: Patient[]) => {
-    if (activeView === 'all') return patients;
+    if (activeView === 'all' && !archiveView) return patients;
     if (categories.includes(activeView)) {
       return patients.filter(p => p.category === activeView);
     }
     if (tciOptions.includes(activeView)) {
       return patients.filter(p => p.tciDay === activeView);
+    }
+    if (archiveView) {
+      // Implement archive filtering logic here
+      // For now, we'll just return an empty array
+      return [];
     }
     return patients;
   };
@@ -293,9 +302,12 @@ export default function HomePage() {
         </div>
         <nav className="mt-4">
           <Button
-            variant={activeView === 'all' ? 'default' : 'ghost'}
+            variant={activeView === 'all' && !archiveView ? 'default' : 'ghost'}
             className="w-full justify-start mb-2"
-            onClick={() => setActiveView('all')}
+            onClick={() => {
+              setActiveView('all');
+              setArchiveView(null);
+            }}
           >
             <Users className="mr-2 h-4 w-4" />
             All Patients
@@ -307,7 +319,10 @@ export default function HomePage() {
                 key={category}
                 variant={activeView === category ? 'default' : 'ghost'}
                 className="w-full justify-start mb-1 text-sm"
-                onClick={() => setActiveView(category)}
+                onClick={() => {
+                  setActiveView(category);
+                  setArchiveView(null);
+                }}
               >
                 {category}
               </Button>
@@ -320,9 +335,29 @@ export default function HomePage() {
                 key={day}
                 variant={activeView === day ? 'default' : 'ghost'}
                 className="w-full justify-start mb-1 text-sm"
-                onClick={() => setActiveView(day)}
+                onClick={() => {
+                  setActiveView(day);
+                  setArchiveView(null);
+                }}
               >
                 {day}
+              </Button>
+            ))}
+          </div>
+          {/* New Archive section */}
+          <div className="mt-4">
+            <h2 className="text-sm font-semibold mb-2">Archive</h2>
+            {['Discharged', 'Deaths', 'Repat', 'Operated trauma'].map((archiveCategory) => (
+              <Button
+                key={archiveCategory}
+                variant={archiveView === archiveCategory ? 'default' : 'ghost'}
+                className="w-full justify-start mb-1 text-sm"
+                onClick={() => {
+                  setActiveView('all');
+                  setArchiveView(archiveCategory);
+                }}
+              >
+                {archiveCategory}
               </Button>
             ))}
           </div>
@@ -334,7 +369,7 @@ export default function HomePage() {
         <div className="p-8">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">
-              {activeView === 'all' ? 'All Patients' : `${activeView} Patients`}
+              {archiveView ? `Archive: ${archiveView}` : activeView === 'all' ? 'All Patients' : `${activeView} Patients`}
             </h1>
             <div className="flex space-x-4">
               <Button onClick={handlePrint}>
